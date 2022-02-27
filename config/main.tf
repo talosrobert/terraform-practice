@@ -13,8 +13,8 @@ provider "azurerm" {
   features {}
 }
 
-resource "azurerm_resource_group" "rg" {
-  name     = "rg-test-westeurope-001"
+resource "azurerm_resource_group" "rg1" {
+  name     = "we-test-rg-001"
   location = "westeurope"
 
   tags = {
@@ -22,28 +22,33 @@ resource "azurerm_resource_group" "rg" {
   }
 }
 
-resource "azurerm_virtual_network" "vnet" {
-  name                = "vnet-test-westeurope-001"
+resource "azurerm_virtual_network" "vnet1" {
+  name                = "we-test-vnet-001"
   address_space       = ["10.0.0.0/16"]
   location            = "westeurope"
-  resource_group_name = azurerm_resource_group.rg.name
+  resource_group_name = azurerm_resource_group.rg1.name
 
   subnet {
-    name           = "snet-test-westeurope-001"
+    name           = "AzureFirewallSubnet"
+    address_prefix = "10.0.0.0/24"
+  }
+
+  subnet {
+    name           = "we-test-snet-001"
     address_prefix = "10.0.1.0/24"
     security_group = azurerm_network_security_group.nsg1.id
   }
 
   subnet {
-    name           = "snet-test-westeurope-002"
+    name           = "we-test-snet-002"
     address_prefix = "10.0.2.0/24"
-    security_group = azurerm_network_security_group.nsg1.id
+    security_group = azurerm_network_security_group.nsg2.id
   }
 
   subnet {
-    name           = "snet-test-westeurope-003"
+    name           = "we-test-snet-003"
     address_prefix = "10.0.3.0/24"
-    security_group = azurerm_network_security_group.nsg2.id
+    security_group = azurerm_network_security_group.nsg3.id
   }
 
   tags = {
@@ -52,21 +57,9 @@ resource "azurerm_virtual_network" "vnet" {
 }
 
 resource "azurerm_network_security_group" "nsg1" {
-  name                = "nsg-test-westeurope-001"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  security_rule {
-    name                       = "allow-inbound-ssh"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = "*"
-    destination_address_prefix = "10.0.1.0/24"
-  }
+  name                = "we-test-nsg-001"
+  location            = azurerm_resource_group.rg1.location
+  resource_group_name = azurerm_resource_group.rg1.name
 
   tags = {
     Environment = "Testing"
@@ -74,33 +67,19 @@ resource "azurerm_network_security_group" "nsg1" {
 }
 
 resource "azurerm_network_security_group" "nsg2" {
-  name                = "nsg-test-westeurope-002"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+  name                = "we-test-nsg-002"
+  location            = azurerm_resource_group.rg1.location
+  resource_group_name = azurerm_resource_group.rg1.name
 
-  security_rule {
-    name                       = "allow-inbound-http"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "*"
-    destination_address_prefix = "10.0.3.0/24"
+  tags = {
+    Environment = "Testing"
   }
+}
 
-  security_rule {
-    name                       = "allow-inbound-htts"
-    priority                   = 101
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "10.0.3.0/24"
-  }
+resource "azurerm_network_security_group" "nsg3" {
+  name                = "we-test-nsg-003"
+  location            = azurerm_resource_group.rg1.location
+  resource_group_name = azurerm_resource_group.rg1.name
 
   tags = {
     Environment = "Testing"
@@ -108,9 +87,39 @@ resource "azurerm_network_security_group" "nsg2" {
 }
 
 resource "azurerm_network_watcher" "nw" {
-  name                = "nw-test-westeurope-001"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+  name                = "we-test-nw-001"
+  location            = azurerm_resource_group.rg1.location
+  resource_group_name = azurerm_resource_group.rg1.name
+
+  tags = {
+    Environment = "Testing"
+  }
+}
+
+resource "azurerm_public_ip" "pip1" {
+  name                = "we-test-pip-001"
+  location            = azurerm_resource_group.rg1.location
+  resource_group_name = azurerm_resource_group.rg1.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+
+  tags = {
+    Environment = "Testing"
+  }
+}
+
+resource "azurerm_firewall" "afw1" {
+  name                = "we-test-afw-001"
+  resource_group_name = azurerm_resource_group.rg1.name
+  location            = azurerm_resource_group.rg1.location
+  sku_tier            = "Standard"
+  dns_servers         = ["9.9.9.9", "149.112.112.112"]
+
+  ip_configuration {
+    name                 = "afw1-ipconf"
+    subnet_id            = [for s in azurerm_virtual_network.vnet1.subnet : s.id if s.name == "AzureFirewallSubnet"][0]
+    public_ip_address_id = azurerm_public_ip.pip1.id
+  }
 
   tags = {
     Environment = "Testing"
