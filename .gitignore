@@ -28,5 +28,8 @@ override.tf.json
 # Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
 # example: *tfplan*
 
-# ignore files folder
+# Exclude secrets.tf file, which is likely to contain sensitive data.
+secrets.tf
+
+# Exclude files folder.
 files/
